@@ -11,9 +11,8 @@ properties:
 - they have no identity and compare by value;
 - they have no associated mutable state;
 - they can be sent across realms;
-- etc.
 
-Unfortunately, the set of value types is correct closed and defined by
+Unfortunately, the set of value types is currently closed and defined by
 the spec. It would be nice if it were user extensible.
 
 There are a number of goals:
@@ -25,59 +24,55 @@ There are a number of goals:
   these new value types. For example, it should be possible to
   duplicate them invisibly to the user and/or store a copy on the
   stack and so forth.
-- ...
+- Value types should integrate with struct types, i.e. it should be possible to
+embed value type data into struct type instances.
 
 ## The ValueType meta type definition
 
 We introduce the meta type definition `ValueType`. `ValueType` can be
 used to define a new value type definition. It takes the same
 arguments as `StructType`, with the exception of a mandatory symbol as
-the first argument. Unlike `StructType`, `ValueType` is a regular
-function, not a constructor, and hence you do not use the `new`
-keyword with it (I'll explain why in the section on prototypes below).
+the first argument and the lack of an `options` parameter. Unlike `StructType`,
+`ValueType` is a regular function, not a constructor, and hence you do not use
+the `new` keyword with it (I'll explain why in the section on prototypes below).
 
 ```js
-var ColorType = ValueType(Symbol("Color"),
-                          {r: uint8, g: uint8, b: uint8, a: uint8});
+const ColorType = ValueType(Symbol("Color"),
+                            {r: uint8, g: uint8, b: uint8, a: uint8});
 ```
-                              
+
 The type of every field in a value type must itself be a value type or
 else an exception is thrown.
 
-If you wish to create a value array, that can be done by using a variation
-on the `ValueType` constructor:
+Just as for struct types, creating value array types is done using an overload of the `ValueType` function:
 
 ```js
-var ColorArrayType = ValueType(Symbol("Color"), uint8, 4);
+const ColorsListType = ValueType(Symbol("Color"), uint8, 4);
 ```
 
-Passing a type and number is equivalent to creating a value type with
-fields named `0...n-1` and all with the same type.
-
-*NOTE:*
-[Issue #1](https://github.com/nikomatsakis/typed-objects-explainer/issues/1)
-proposes to extend this constructor form for fixed-length arrays to
-non-value types as well.
+Passing a type and number `n` is equivalent to creating a value type with
+fields named `0...n-1` and all with the same type, plus a named field `length`
+with the value `n`.
 
 ## Creating a value type instance
 
 Instances of a value type are created by invoking the function with
 a single argument. This argument will be coerced to the value in the same
-was as with a normal type definition. Hence:
+way as with a normal type definition. Hence:
 
 ```js
-var color = ColorType({r: 22, g: 44, b: 66, a: 88});
-color.b == 66
+let color = ColorType({r: 22, g: 44, b: 66, a: 88});
+color.b === 66;
 ```
-    
+
 ## Assigning to fields of a value type
 
 Values are deeply immutable. Therefore, attempting to assign to a
 field of a value throws an error:
 
 ```js
-var color = ColorType({r: 22, g: 44, b: 66, a: 88});
-color.b = 66 // throws
+let color = ColorType({r: 22, g: 44, b: 66, a: 88});
+color.b = 66; // throws
 ```
 
 ## Prototypes
@@ -88,7 +83,7 @@ like to be able to attach prototypes to them. To achieve this, we
 generalize the wrapper mechanism that is used with the existing value
 types like string etc.
 
-The idea is that there is a *per-realm* (not global!) registry of
+The idea is that there is a *per-realm* (not embedding-global!) registry of
 value types defined in the engine. This registry is pre-populated with
 the engine-defined types like strings and numbers (which map to the
 existing constructors `String`, `Number`, etc).
@@ -108,15 +103,15 @@ All this machinery together basically means you can attach methods to
 value types as normal and everything works:
 
 ```js
-var ColorType = ValueType(Symbol("Color"),
-                          {r: uint8, g: uint8, b: uint8, a: uint8});
-                           
+const ColorType = ValueType(Symbol("Color"),
+                            {r: uint8, g: uint8, b: uint8, a: uint8});
+
 ColorType.prototype.average = function() {
-    (this.r + this.g + this.b) / 3
+    return (this.r + this.g + this.b) / 3;
 };
 
-var color = ColorType({r: 22, g: 44, b: 66, a: 88});
-color.average() // yields 44
+let color = ColorType({r: 22, g: 44, b: 66, a: 88});
+color.average(); // yields 44
 ```
 
 ## The registry and structural equivalence
@@ -144,12 +139,12 @@ definition twice, you get back the same object each time:
 ```js
 // Registering the same type twice yields the same object
 // the second time:
-var ColorSymbol = Symbol("Color");
-var ColorType1 = ValueType(ColorSymbol,
-                           {r: uint8, g: uint8, b: uint8, a: uint8});
-var ColorType2 = ValueType(ColorSymbol,
-                           {r: uint8, g: uint8, b: uint8, a: uint8});
-ColorType1 === ColorType2
+let ColorSymbol = Symbol("Color");
+const ColorType1 = ValueType(ColorSymbol,
+                             {r: uint8, g: uint8, b: uint8, a: uint8});
+const ColorType2 = ValueType(ColorSymbol,
+                             {r: uint8, g: uint8, b: uint8, a: uint8});
+ColorType1 === ColorType2;
 ```
 
 Note that the symbol is very important. If I try to register two value
@@ -159,33 +154,33 @@ the omitted text `...` is the same both times):
 
 ```js
 // Different symbols:
-var ColorType1 = ValueType(Symbol("Color"), ...);
-var ColorType2 = ValueType(Symbol("Color"), ...);
-ColorType1 !== ColorType2
+const ColorType1 = ValueType(Symbol("Color"), ...);
+const ColorType2 = ValueType(Symbol("Color"), ...);
+ColorType1 !== ColorType2;
 ```
-    
+
 Similarly, if the symbols are the same but the field names are not,
 the types are not equivalent:
 
 ```js
-var ColorSymbol = Symbol("Color");
-var ColorType1 = ValueType(ColorSymbol,
-                           {r: uint8, g: uint8, b: uint8, a: uint8});
-var ColorType2 = ValueType(ColorSymbol,
-                           {y: uint16, u: uint16, v: uint16});
-ColorType1 !== ColorType2
+let ColorSymbol = Symbol("Color");
+const ColorType1 = ValueType(ColorSymbol,
+                             {r: uint8, g: uint8, b: uint8, a: uint8});
+const ColorType2 = ValueType(ColorSymbol,
+                             {y: uint16, u: uint16, v: uint16});
+ColorType1 !== ColorType2;
 ```
 
 ### Design discussion
 
 This setup is designed to permit multiple libraries to be combined
 into a single JS app without interfering with one another. By default,
-all libaries will create their own symbols and hence their own
+all libraries will create their own symbols and hence their own
 distinct sets of value types. This means you can freely add methods to
 value types that you define without fear of stomping on somebody
 else's value type.
 
-On the other hand, if libraries with to interoperate, they can do so
+On the other hand, if libraries wish to interoperate, they can do so
 via the symbol registry. Similarly, value types that should be
 equivalent across realms can be achieved using the global symbol
 registry.
@@ -203,20 +198,20 @@ equivalent (as defined above) and their values are (recursively)
 instances of the same value type with the same values, they are `===`:
 
 ```js
-var color = ColorType({r: 22, g: 44, b: 66, a: 88});
+let color = ColorType({r: 22, g: 44, b: 66, a: 88});
 color === ColorType({r: 22, g: 44, b: 66, a: 88});
 color !== ColorType({r: 88, g: 66, b: 44, a: 22});
 ```
-    
+
 In fact, If I define `ColorType` twice, but using the same `Symbol`,
 instances are *still* equivalent (here, assuming that the stuff I
 omitted with `...` is the same in both cases):
 
 ```js
-var symbol = Symbol("Color");
-var ColorType1 = ValueType(symbol, {...}); // ... == rgba
-var ColorType2 = ValueType(symbol, {...});
-ColorType1({r:22, ...}) === ColorType2({r: 22, ...}) // ... == same values
+let symbol = Symbol("Color");
+const ColorType1 = ValueType(symbol, {...}); // ... == rgba
+const ColorType2 = ValueType(symbol, {...});
+ColorType1({r:22, ...}) === ColorType2({r: 22, ...}); // ... == same values
 ```
 
 However, If I define `ColorType` twice, but using different `Symbol`
@@ -224,9 +219,9 @@ values, then instances are *not* the same (again, assume that the stuff
 I omitted with `...` is the same in both cases):
 
 ```js
-var ColorType1 = ValueType(Symbol(...), {...}); // ... == rgba
-var ColorType2 = ValueType(Symbol(...), {...});
-ColorType1({r:22, ...}) !== ColorType2({r: 22, ...}) // ... == same values
+const ColorType1 = ValueType(Symbol(...), {...}); // ... == rgba
+const ColorType2 = ValueType(Symbol(...), {...});
+ColorType1({r:22, ...}) !== ColorType2({r: 22, ...}); // ... == same values
 ```
 
 Note that I have only defined `===` here. It is not clear to me at
@@ -247,4 +242,3 @@ real meaning (it also permits "forgery" of the return values
 `"string"` and so forth). On the other hand, that makes user-defined
 value types somewhat inconsistent with the existing value types like
 string.
-
