@@ -198,14 +198,31 @@ value types that you define without fear of stomping on somebody
 else's value type.
 
 On the other hand, if libraries wish to interoperate, they can do so
-via the symbol registry. Similarly, value types that should be
-equivalent across realms can be achieved using the global symbol
-registry.
+via shared symbols.
 
 Put another way, ES6 introduced symbols in order to give libraries a
 flexible means of declaring when they wish to use the same name to
 refer to the same thing versus using the same name in different ways.
 Value types build on that.
+
+### Cross-realm usage
+
+In JS, sending an object to another realm means sending a pointer to the object
+instead of copying its contents. Calling methods on the object calls code
+in the other realm, and modifying its contents modifies the other realm's memory. The
+builtin value types, `string`, `number`, `boolean`, OTOH, are copied into the other
+realm. Hence, calling a method on, e.g., a string value originating from another realm
+calls code in the current, not the originating realm. This proposal extends the same
+behavior to user-defined value types.
+
+When sending a value type to another realm, a structurally equivalent type definition
+is looked up or, if it doesn't yet exist, synthesized in the other realm's type
+definition registry. The value in the other realm is then created as an instance of
+that type definition. Calling a method on the value causes a lookup to be performed on
+that type definition's `prototype`.
+
+Realms wanting to interoperate can use the runtime-wide symbol registry to create
+interoperable value type definitions with a compatible set of methods.
 
 ## Comparing values
 
