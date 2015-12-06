@@ -54,16 +54,34 @@ Passing a type and number `n` is equivalent to creating a value type with
 fields named `0...n-1` and all with the same type, plus a named field `length`
 with the value `n`.
 
-## Creating a value type instance
+## Instantiating value types
 
-Instances of a value type are created by invoking the function with
-a single argument. This argument will be coerced to the value in the same
-way as with a normal type definition. Hence:
+You can create an instance of a value type by calling the type definition:
+
+```js
+let color = ColorType();
+color.b === 0;
+```
+
+The result is called a *value object*: it will have the fields specified in
+`ColorType`. If no arguments are provided, each field will be initialized to an
+appropriate default value based on its type (e.g., numbers are initialized to 0, fields
+of type `string` are initialized to the empty string `""`, and so on). Fields with
+complex value types are recursively initialized.
+
+Usually a `source object` is provided when when creating a new value type instance.
+This object will be used to set the values for each field:
 
 ```js
 let color = ColorType({r: 22, g: 44, b: 66, a: 88});
 color.b === 66;
+let color2 = ColorType(color);
+color2.b === 66;
 ```
+
+As the example shows, the source object can be either a normal JS object or another
+typed value or struct object. The only requirement is that it have fields of the
+appropriate type.
 
 ## Assigning to fields of a value type
 
@@ -72,7 +90,7 @@ field of a value throws an error:
 
 ```js
 let color = ColorType({r: 22, g: 44, b: 66, a: 88});
-color.b = 66; // throws
+color.b = 77; // throws
 ```
 
 ## Prototypes
@@ -88,16 +106,15 @@ value types defined in the engine. This registry is pre-populated with
 the engine-defined types like strings and numbers (which map to the
 existing constructors `String`, `Number`, etc).
 
-When you apply the `.` operator to a value, what happens is that the
-value's type is looked up in the per-realm registry. If an entry `C`
-exists, then a wrapper object is constructed whose prototype is
-`C.prototype` and execution proceeds as normal.
+When you perform a property lookup on a value type instance with a property name that's
+not a field of the type definition, the value's type definition is looked up in the
+per-realm registry. If an entry `C` exists, then a wrapper object is constructed whose
+`[[Prototype]]` is `C.prototype` and execution proceeds as normal.
 
 When you invoke the `ValueType` function to define a new type, you are
 in fact submitting a new type to be added to the registry, if it does
 not already exist.  If an equivalent entry already exists, it is
-returned to you. (More details on this process are in the next
-section.)
+returned to you. (More details on this process are in the next section.)
 
 All this machinery together basically means you can attach methods to
 value types as normal and everything works:
@@ -116,9 +133,9 @@ color.average(); // yields 44
 
 ## The registry and structural equivalence
 
-I said above that when you invoke the `ValueType` constructor, you are
+I said above that when you invoke the `ValueType` function, you are
 in fact submitting a new value type to be registered.  If a
-*structurally equivalent* value type already exists, then that object
+*structurally equivalent* value type definition already exists, then that definition
 will be returned to you. This, by the way, is why we do not use the
 `new` keyword when creating a value type -- it is not *necessarily* a
 new object that is returned.
