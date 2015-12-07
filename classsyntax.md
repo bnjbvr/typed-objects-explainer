@@ -74,6 +74,16 @@ function.
 A downside to this scheme is that it requires a no-newline restriction within
 `struct class` and `value class`.
 
+### Typed Object Array methods
+
+Since each typed object definition has an accompanying definition of an array
+type of instances of the typed object definition, it should be possible to add
+methods to that array type declaratively.
+
+This should be done in a similar fashion to how static methods are added to
+normal classes (or indeed struct or value type classes). Since that hasn't
+been fully defined yet, this section will be fleshed out later.
+
 ## Inheritance
 
 Just as normal classes, value and struct class declarations can use `extend`.
