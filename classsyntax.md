@@ -74,6 +74,49 @@ function.
 A downside to this scheme is that it requires a no-newline restriction within
 `struct class` and `value class`.
 
+## Inheritance
+
+Just as normal classes, value and struct class declarations can use `extend`.
+The base has to be a compatible type definition: struct types can only extend
+other struct types, value types can only extend other value types.
+
+The memory layout of a child type is simple: the super type's properties form
+the pre- and the child type's the postfix of the combined layout. This setup
+enables treating child types as instances of their super types.
+
+As an example, the code
+
+```js
+struct class RGB {
+  r: uint8;
+  g: uint8;
+  b: uint8;
+}
+
+struct class RGBA extends RGB {
+  a: uint8;
+}
+
+let pixel = new RGBA({r: 00, g: 11, b: 22, a: 44});
+```
+
+Results in an object `pixel` with the following layout in memory:
+
+    +==============+    --+ RGBAType
+    | r: uint8: 00 |      |
+    | g: uint8: 11 |      |
+    | b: uint8: 22 |      |
+    | a: uint8: 44 |      |
+    +==============+    --+
+
+As is the case for the builtin primitives like `String` and `Number`,
+struct and value types can only be extended using declarative syntax.
+
+### Typed Object Array sub-classing
+
+Extending a struct or value type also automatically sets up the child class'
+accompanying `array` type as a child class of the parent class' `array` type.
+
 ## Sealed classes
 
 It'd also be nice to be able to have classes whose prototypes are
