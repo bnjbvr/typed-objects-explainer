@@ -44,7 +44,8 @@ const ColorType = ValueType(Symbol("Color"),
 The type of every field in a value type must itself be a value type or
 else an exception is thrown.
 
-Just as for struct types, creating value array types is done using an overload of the `ValueType` function:
+Just as for struct types, creating fixed-length value array types is done using an
+overload of the `ValueType` function:
 
 ```js
 const ColorsListType = ValueType(Symbol("Color"), uint8, 4);
@@ -54,7 +55,18 @@ Passing a type and number `n` is equivalent to creating a value type with
 fields named `0...n-1` and all with the same type, plus a named field `length`
 with the value `n`.
 
+### Value Object Arrays
+
+Just as for struct types, value type definitions have an accompanying constructor for
+dynamic arrays of instances of the type, as [described in the core
+explainer](core.md#typed-object-arrays).
+
 ## Instantiating value types
+
+Instantiating a value type works much the same as for struct types, except it doesn't
+require using the `new` operator since values don't have nominal identity. In fact,
+just as for `Symbol` calling a value type definition function with `new` throws an
+exception.
 
 You can create an instance of a value type by calling the type definition:
 
@@ -95,6 +107,8 @@ color.b = 77; // throws
 
 ## Prototypes
 
+### Value Object prototypes
+
 Instances of value types are *not* objects. Therefore, like a number
 or a string, they have no associated prototype. Nonetheless, we would
 like to be able to attach prototypes to them. To achieve this, we
@@ -130,6 +144,10 @@ ColorType.prototype.average = function() {
 let color = ColorType({r: 22, g: 44, b: 66, a: 88});
 color.average(); // yields 44
 ```
+
+### Value Object Array prototypes
+
+Similar to struct object arrays, value object arrays have the `prototype` of the type definition's `.array` constructor immutably set as their `[[Prototype]]`. That, in turn, has `Array.prototype` immutably set as it's `[[Prototype]]`.
 
 ## The registry and structural equivalence
 
