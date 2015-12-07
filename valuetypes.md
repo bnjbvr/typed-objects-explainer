@@ -318,12 +318,7 @@ instance.metadata = {}; // Throws
 
 ## The typeof operator
 
-The `typeof` operator applied to a value type yields its associated
-symbol. This changes `typeof` so that it does not always return a
-string. If this is deemed too controversial, then `typeof` could
-return the stringification of the associated symbol, but that seems
-suboptimal to me because in that case `(typeof v === typeof w)` has no
-real meaning (it also permits "forgery" of the return values
-`"string"` and so forth). On the other hand, that makes user-defined
-value types somewhat inconsistent with the existing value types like
-string.
+The `typeof` operator applied to a value type yields the stringification of the
+associated symbol. Ideally, the associated symbol would be returned. However, too much
+code relies on `typeof` returning a string, making the integration of value types into
+existing code bases prohibitively costly.
