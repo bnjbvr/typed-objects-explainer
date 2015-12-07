@@ -5,34 +5,74 @@ integrate with typed objects.
 
 *WARNING:* This is *very* preliminary and not fully thought through.
 
-## Field types
+## Struct classes
 
-Allow users to declare field types. If any field types exist, this
-class syntax will be desugared into a typed object definition.
+Because `struct` and `value` aren't reserved words, they can't be used as the
+keyword for declarative definition of struct and value types, respectively.
+Instead, they're prepended to the `class` keyword for declarative type
+definitions, which are just syntactic sugar for the imperative form. Thus:
 
 ```js
-class PointType {
-    r: uint8;
-    g: uint8;
-    b: uint8;
-    a: uint8;
-    
-    constructor(r, g, b, a) {
-        this.r = r; ...
-    }
-}
-````
+struct class PointType {
+  x: float64;
+  y: float64;
 
-desugars into something like:
+  delta() {
+    return this.y / this.x;
+  }
+}
 
-```
-var _PointType = new StructType({r: uint8, g: uint8, b: uint8, a: uint8});
-class PointType(_PointType) {
-    constructor(r, g, b, a) {
-        this.r = r; ...
-    }
+value class ColorType {
+  r: uint8;
+  g: uint8;
+  b: uint8;
+  a: uint8;
+
+  [Symbol.TypeName]: Symbol("ColorType");
+
+  opacity() {
+    return this.a / 0xff;
+  }
+}
+
+// Equivalent imperative definitions:
+const PointType = new StructType({x: float64, y: float64});
+PointType.prototype = {
+  delta() {
+    return this.y / this.x;
+  }
+}
+
+const ColorType = ValueType(Symbol("ColorType"),
+                            {r: uint8, g: uint8, b: uint8, a: uint8});
+ColorType.prototype = {
+  opacity() {
+    return this.a / 0xff;
+  }
 }
 ```
+
+Note how neither `PointType` nor `ColorType` have constructors: the instances
+are initialized from `source objects`, just as imperatively created struct and
+value type definitions.
+
+For struct types, the reason is mostly consistency: how to use struct types
+shouldn't depend on how they're defined. The declarative form also wouldn't be
+pure sugar for the imperative one, anymore.
+
+For value types, there really isn't any alternative: since they don't have
+nominal identity, constructing them doesn't make sense, and since they're
+immutable, they must be fully initialized upon instantiation, either ruling out
+a free-form imperative initializer, requiring runtime checks for its validity,
+or a two-step initialization where all fields are initialized to default values
+first.
+
+Further, note the `[Symbol.TypeName]` on `value class ColorType`: this is
+equivalent to providing a symbol as the first argument to the `ValueType`
+function.
+
+A downside to this scheme is that it requires a no-newline restriction within
+`struct class` and `value class`.
 
 ## Sealed classes
 
