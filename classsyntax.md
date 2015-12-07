@@ -131,6 +131,12 @@ Results in an object `pixel` with the following layout in memory:
 As is the case for the builtin primitives like `String` and `Number`,
 struct and value types can only be extended using declarative syntax.
 
+### Type Aliases
+
+By extending a base type without adding any properties, it's possible to
+effectively define a type alias with its own set of methods. E.g., `value
+class Color extends uint32 {}` creates a `Color` alias for `uint32`.
+
 ### Typed Object Array sub-classing
 
 Extending a struct or value type also automatically sets up the child class'
