@@ -282,6 +282,22 @@ don't have nominal identity, this doesn't pose a problem.
 Just as standalone value objects can't be changed internally, embedded value objects
 can only be replaced in their entirety.
 
+## Embedding references into value objects
+
+Value objects can contain properties that are pointers to non-value objects. I.e., they
+can contain `any` and `object` fields. The value of a property like that is, shallowly,
+immutable like all other properties of value objects, however.
+
+```js
+const ComplexValue = ValueType(Symbol('cv'), {color: uint32, metadata: object});
+let source = {color: 0x11223344, metadata: {}};
+let instance = ComplexValue(source);
+instance.metadata === source.metadata;
+source.metadata.name = 'example';
+instance.metadata.name === source.metadata.name;
+instance.metadata = {}; // Throws
+```
+
 ## The typeof operator
 
 The `typeof` operator applied to a value type yields its associated
