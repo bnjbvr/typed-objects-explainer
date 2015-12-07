@@ -265,6 +265,23 @@ when deciding whether two types are equivalent. Alternatively, if we
 introduce overloadable operators as [described here](overloading.md),
 then this could potentially be done in user libraries.
 
+## Embedding value objects in struct objects
+
+Just as the predefined primitive types [described in the core
+explainer](core.md#primitive-type-definitions), user-defined value objects can be
+embedded into typed object structs. Again just as for predefined primitive types,
+accessing a struct-embedded value object returns a copy of the value, not a reference
+to the embedded value.
+
+Struct types containing embedded value objects can still be transparent, provided the
+value object itself doesn't contain fields that force opacity. As a consequence, it's
+possible to get different values upon accessing the same embedded value multiple times,
+even though no assignment to the containing property happened. Since value objects
+don't have nominal identity, this doesn't pose a problem.
+
+Just as standalone value objects can't be changed internally, embedded value objects
+can only be replaced in their entirety.
+
 ## The typeof operator
 
 The `typeof` operator applied to a value type yields its associated
