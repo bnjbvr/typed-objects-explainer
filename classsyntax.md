@@ -10,7 +10,13 @@ integrate with typed objects.
 Because `struct` and `value` aren't reserved words, they can't be used as the
 keyword for declarative definition of struct and value types, respectively.
 Instead, they're prepended to the `class` keyword for declarative type
-definitions, which are just syntactic sugar for the imperative form. Thus:
+definitions, which are mostly syntactic sugar for the imperative form.
+
+The equivalence isn't perfect, though: declaratively added methods are
+non-generic, and the declarative syntax enables sub-classing. See consecutive
+sections for details.
+
+Thus:
 
 ```js
 struct class PointType {
@@ -35,20 +41,16 @@ value class ColorType {
   }
 }
 
-// Equivalent imperative definitions:
+// Roughly equivalent imperative definitions:
 const PointType = new StructType({x: float64, y: float64});
-PointType.prototype = {
-  delta() {
-    return this.y / this.x;
-  }
+PointType.prototype.delta = function() {
+  return this.y / this.x;
 }
 
 const ColorType = ValueType(Symbol("ColorType"),
                             {r: uint8, g: uint8, b: uint8, a: uint8});
-ColorType.prototype = {
-  opacity() {
-    return this.a / 0xff;
-  }
+ColorType.prototype.opacity = function() {
+  return this.a / 0xff;
 }
 ```
 
@@ -83,6 +85,13 @@ methods to that array type declaratively.
 This should be done in a similar fashion to how static methods are added to
 normal classes (or indeed struct or value type classes). Since that hasn't
 been fully defined yet, this section will be fleshed out later.
+
+## Method Non-genericity
+
+Methods of declaratively-defined struct and value objects aren't generic:
+calling them on a receiver that's not an instance of the original type
+definition or a subclass of it. This adds optimization opportunities as the
+engine can omit checks for property accesses within the methods.
 
 ## Inheritance
 
