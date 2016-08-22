@@ -18,25 +18,26 @@ The explainer proceeds as follows:
 			3. [Example: Indexed structs](#example-indexed-structs)
 			4. [Example: Nested structs](#example-nested-structs)
 		3. [Struct arrays](#struct-arrays)
-	3. [Alignment and Padding](#alignment-and-padding)
+	3. [Type References](#type-references)
+	4. [Alignment and Padding](#alignment-and-padding)
 		1. [Alignment: Primitive Types](#alignment-primitive-types)
 		2. [Alignment: Nested Structs](#alignment-nested-structs)
 		3. [Padding](#padding)
 		4. [Alignment and Opacity](#alignment-and-opacity)
 		5. [Alignment and Padding: Examples](#alignment-and-padding-examples)
-	4. [Instantiation](#instantiation)
+	5. [Instantiation](#instantiation)
 		1. [Instantiating struct types](#instantiating-struct-types)
 			1. [Default Values](#default-values)
 		2. [Creating struct arrays](#creating-struct-arrays)
-	5. [Reading fields and elements](#reading-fields-and-elements)
-	6. [Assigning fields](#assigning-fields)
+	6. [Reading fields and elements](#reading-fields-and-elements)
+	7. [Assigning fields](#assigning-fields)
 		1. [Assignment and Alignment Padding](#assignment-and-alignment-padding)
-	7. [No Dynamic Properties](#no-dynamic-properties)
-	8. [Backing buffers](#backing-buffers)
-	9. [Canonicalization of typed objects / equality](#canonicalization-of-typed-objects--equality)
-	10. [Interacting with array buffers](#interacting-with-array-buffers)
-	11. [Opacity](#opacity)
-	12. [Prototypes](#prototypes)
+	8. [No Dynamic Properties](#no-dynamic-properties)
+	9. [Backing buffers](#backing-buffers)
+	10. [Canonicalization of typed objects / equality](#canonicalization-of-typed-objects--equality)
+	11. [Interacting with array buffers](#interacting-with-array-buffers)
+	12. [Opacity](#opacity)
+	13. [Prototypes](#prototypes)
 		1. [Shared Base Constructors](#shared-base-constructors)
 
 <!-- /TOC -->
@@ -110,7 +111,8 @@ function StructType(elementType, length, [options])
 
 The first overload defines struct types with the fields given in `structure`. The
 `structure` argument must recursively consist of fields whose values are type
-definitions: either primitive or struct type definitions.
+definitions: either primitive types, struct type definitions, or
+[type references](#type-references).
 
 The second overload is a shortcut for defining struct types with indexed elements
 of a certain type: each entry is an instance of the struct type `elementType`, and
@@ -235,6 +237,25 @@ let points = new PointStruct.Array(10);
 
 For the full set of overloads of the `array` method see the [section on
 creating struct arrays](#creating-struct-arrays) below.
+
+## Type References
+
+Typed references represent strongly typed pointers to typed objects.
+
+By default, types referenced in other types (e.g. as fields in a struct type definition)
+cause memory to be reserved for a nested instance of the referenced type in each instance
+of the referring type. I.e., the default is for types to be embedded in other types.
+
+Using the `any` and `object` types, it's possible to add pointers to other objects and
+struct type instances to a type definition. Type references add a way to add _typed_
+pointers.
+
+Type references are created using a struct type definition's static `ref` field:
+
+```js
+const PointStruct = new StructType({x: float64, y: float64});
+const LineStruct = new StructType({start: PointStruct.ref, end: PointStruct.ref});
+```
 
 ## Alignment and Padding
 
@@ -553,6 +574,9 @@ contrast to fields of struct type. Instead, it simply copies the value out
 from the array buffer and returns that. Therefore, `toPoint.x` yields
 the value `3`, not a pointer into the buffer.
 
+Accessing a field containing a type reference returns a normal pointer, just as
+for fields of type `object` or `any`.
+
 The rules for accessing named and indexed properties of a struct are the same.
 If for example you have an instance `array` of a `uint8` indexed struct type like
 `new StructType(uint8, 32)`, then `array[0]` will yield a number. If you
@@ -620,6 +644,19 @@ line.to.y = float64(44);
 line.to = {x: 22, y: 44};
 
 line.to = {x: float64(22), y: float64(44)};
+```
+
+If a field is typed as a type reference, then the assignment operation will succeed
+iff the source value is a pointer to an object of the right type. Otherwise, a
+`TypeError` is thrown:
+
+```js
+const PointStruct = new StructType({x: float64, y: float64});
+const LineStruct = new StructType({start: PointStruct.ref, end: PointStruct.ref});
+let line = new LineStruct();
+line.start = {x: 10, y: 10}; // Throws.
+let newStart = new PointStruct(10, 10);
+line.start = newStart; // Ok.
 ```
 
 ### Assignment and Alignment Padding
@@ -712,12 +749,12 @@ offset directly as synthetic local variables.
 
 In a prior section, we said that accessing a field of a typed object
 will return a new typed object that shares the same backing buffer if the
-field has a struct type. Based on this, you might wonder what happens if you
+field has a nested struct type. Based on this, you might wonder what happens if you
 access the same field twice in a row:
 
 ```js
 let line = new LineStruct({from: {x: 1, y: 2},
-                         to: {x: 3, y: 4}});
+                           to: {x: 3, y: 4}});
 let toPoint1 = line.to;
 let toPoint2 = line.to;
 ```
@@ -747,7 +784,13 @@ required) to actually have such a cache, though it may be useful to
 handle corner cases like placing a typed object into a weak
 map. Nonetheless, modeling the behavior as if the cache existed is
 useful because it tells us what should happen when a typed object is
-placed into a weakmap.
+placed into a weak map.
+
+*Note*: No canonicalization occurs when accessing a field containing a
+type reference. As noted in an earlier section, such an access returns a
+normal pointer to the referenced object, so the access behaves identical
+to reads of a field of type `object` or `any`. (The only difference being
+that such a pointer is guaranteed to point to an object of the right type.)
 
 ## Interacting with array buffers
 
@@ -764,7 +807,8 @@ let buffer = new ArrayBuffer(...);
 let line = LineStruct.view(buffer, offset);
 ```
 
-Note that this only works for transparent struct type definitions. See [the following section on opacity](#opacity) for details.
+Note that this only works for transparent struct type definitions.
+See [the following section on opacity](#opacity) for details.
 
 You can also obtain information about the backing buffer from an existing
 transparent typed object by using the `buffer`, `position`, and `length`
@@ -815,10 +859,11 @@ Not all struct types can be made transparent: for types that
 contain object or string pointers, opacity is a security necessity. If users
 could gain access to the backing buffer, then they could synthesize fake
 pointers and hack the system. Therefore, setting the `transparent` option
-when defining a type containing `object` or `string` pointers or `any` fields
-throws an exception. For the same reason, it's not possible to use the `view`
-static method on opaque struct type constructors to create a view onto a
-preexisting buffer.
+when defining a type containing `object`, `string`, or type reference pointers
+or `any` fields throws an exception.
+
+For the same reason, it's not possible to use the `view` static method on opaque
+struct type constructors to create a view onto a preexisting buffer.
 
 ## Prototypes
 
