@@ -18,26 +18,28 @@ The explainer proceeds as follows:
 			3. [Example: Indexed structs](#example-indexed-structs)
 			4. [Example: Nested structs](#example-nested-structs)
 		3. [Struct arrays](#struct-arrays)
-	3. [Type References](#type-references)
-	4. [Alignment and Padding](#alignment-and-padding)
+	3. [Type Declarations](#type-declarations)
+	4. [Type References](#type-references)
+		1. [Circular References](#circular-references)
+	5. [Alignment and Padding](#alignment-and-padding)
 		1. [Alignment: Primitive Types](#alignment-primitive-types)
 		2. [Alignment: Nested Structs](#alignment-nested-structs)
 		3. [Padding](#padding)
 		4. [Alignment and Opacity](#alignment-and-opacity)
 		5. [Alignment and Padding: Examples](#alignment-and-padding-examples)
-	5. [Instantiation](#instantiation)
+	6. [Instantiation](#instantiation)
 		1. [Instantiating struct types](#instantiating-struct-types)
 			1. [Default Values](#default-values)
 		2. [Creating struct arrays](#creating-struct-arrays)
-	6. [Reading fields and elements](#reading-fields-and-elements)
-	7. [Assigning fields](#assigning-fields)
+	7. [Reading fields and elements](#reading-fields-and-elements)
+	8. [Assigning fields](#assigning-fields)
 		1. [Assignment and Alignment Padding](#assignment-and-alignment-padding)
-	8. [No Dynamic Properties](#no-dynamic-properties)
-	9. [Backing buffers](#backing-buffers)
-	10. [Canonicalization of typed objects / equality](#canonicalization-of-typed-objects--equality)
-	11. [Interacting with array buffers](#interacting-with-array-buffers)
-	12. [Opacity](#opacity)
-	13. [Prototypes](#prototypes)
+	9. [No Dynamic Properties](#no-dynamic-properties)
+	10. [Backing buffers](#backing-buffers)
+	11. [Canonicalization of typed objects / equality](#canonicalization-of-typed-objects--equality)
+	12. [Interacting with array buffers](#interacting-with-array-buffers)
+	13. [Opacity](#opacity)
+	14. [Prototypes](#prototypes)
 		1. [Shared Base Constructors](#shared-base-constructors)
 
 <!-- /TOC -->
@@ -238,6 +240,31 @@ let points = new PointStruct.Array(10);
 For the full set of overloads of the `array` method see the [section on
 creating struct arrays](#creating-struct-arrays) below.
 
+## Type Declarations
+
+Besides directly defining a type, it's also possible to create a type declaration for
+which the definition is supplied later. This is to support [typed references](#type-references)
+between types with circular dependencies.
+
+A type is defined using the `StructTypeDeclaration` constructor. Afterwards, a definition
+can be supplied using `StructType`'s static `define` method:
+
+```js
+const PointStruct = new StructTypeDeclaration();
+StructType.define(PointStruct, {x: float64, y: float64});
+```
+
+Trying to instantiate a declared type before defining it causes a `TypeError`, as does
+an attempt to define it more than once:
+
+```js
+const PointStruct = new StructTypeDeclaration();
+new PointStruct(); // Throws.
+StructType.define(PointStruct, {x: float64, y: float64});
+new PointStruct(); // Ok.
+StructType.define(PointStruct, {x: int32, y: int32}); // Throws.
+```
+
 ## Type References
 
 Typed references represent strongly typed pointers to typed objects.
@@ -255,6 +282,20 @@ Type references are created using a struct type definition's static `ref` field:
 ```js
 const PointStruct = new StructType({x: float64, y: float64});
 const LineStruct = new StructType({start: PointStruct.ref, end: PointStruct.ref});
+```
+
+### Circular References
+
+Using [Type Declarations](#type-declarations), it's possible to create circular types:
+
+```js
+const LinkedListEntry = new StructTypeDeclaration();
+StructType.define(LinkedListEntry, {value: float64, next: LinkedListEntry.ref});
+let head = new LinkedListEntry({value: 1});
+// Ok, because all fields have the right types (or are coercible to the right types):
+head = new LinkedListEntry({value: 2, next: head});
+// Throws a TypeError:
+head = new LinkedListEntry({value: 42, next: new Object()});
 ```
 
 ## Alignment and Padding
@@ -480,7 +521,7 @@ let defaults = {
   bottomRight: {x: Number.POSITIVE_INFINITY, y: Number.POSITIVE_INFINITY}
 };
 const RectangleStruct = new StructType({topLeft: PointStruct, bottomRight: PointStruct},
-                                   {defaults: defaults});
+                                       {defaults: defaults});
 // Instantiate from a source object with one partially and one entirely missing field:
 let rect1 = new RectangleStruct({topLeft: {x: 10}});
 rect1.topLeft.x === 10;
