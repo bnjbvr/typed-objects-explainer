@@ -298,6 +298,31 @@ head = new LinkedListEntry({value: 2, next: head});
 head = new LinkedListEntry({value: 42, next: new Object()});
 ```
 
+### Local Type References
+
+Local type references are similar to normal [Type References](#type-references), with
+two differences:
+  - They only allow references to into the same underlying buffer.
+  - They don't preclude the type containing them from being transparent.
+
+The second is a consequence of the first: restricting references to the same buffer
+makes it possible to store the reference as a simple byte offset instead of a pointer,
+removing the security concerns associated with reading and modifying the bytes
+underlying a normal reference/pointer.
+
+```js
+const LocalLinkedListEntry = new StructTypeDeclaration();
+StructType.define(LocalLinkedListEntry, {value: float64, next: LocalLinkedListEntry.localRef},
+                  {transparent: true});
+let head = new LocalLinkedListEntry({value: 1}); // Ok, because nullptr
+head = new LocalLinkedListEntry({value: 2, next: head}); // Throws because not same buffer
+
+let buffer = new ArrayBuffer(1000);
+let otherEntry = LocalLinkedListEntry.view(buffer, 500);
+head = LocalLinkedListEntry.view(buffer, 0);
+head.next = otherEntry; // Ok, because same buffer
+```
+
 ## Alignment and Padding
 
 The alignment of a struct type member field is determined by its type.
